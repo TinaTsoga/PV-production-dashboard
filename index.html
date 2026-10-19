@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Παραγωγή &amp; Έσοδα Πάρκων</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1b2433;--mut:#6b7686;--line:#e4e8ef;--acc:#0f6fde;--up:#15803d;--down:#c0392b}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(120deg,#0b3a75,#0f6fde);color:#fff;padding:18px 20px 0}
+header h1{margin:0 0 2px;font-size:20px}header p{margin:0 0 12px;opacity:.8;font-size:13px}
+nav{display:flex;gap:4px}nav button{background:none;border:0;color:#cfe0fb;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;border-radius:10px 10px 0 0}
+nav button.on{background:var(--bg);color:var(--ink)}
+main{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:16px}
+.bar label{font-size:13px;color:var(--mut);display:flex;gap:8px;align-items:center}
+select,input{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px}
+.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:0 1px 3px rgba(20,30,50,.07)}
+.kpi small{color:var(--mut);display:block}.kpi b{font-size:26px;display:block;line-height:1.2}.kpi span{font-size:12px;color:var(--mut)}
+h2{font-size:15px;margin:0 0 12px}.cv{position:relative;height:300px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;background:#fff}
+tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var(--down)}.na{color:#aab2bf}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px}
+#msg{background:#fff6e0;color:#7a5600;padding:8px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;display:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;background:#fff;padding:7px 14px;font:inherit;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
+.view{display:none}.view.on{display:block}
+@media(max-width:600px){.kpi b{font-size:22px}header h1{font-size:18px}}
+</style>
+</head>
+<body>
+<header><h1>☀️ Παραγωγή &amp; Έσοδα Πάρκων</h1><p id="upd"></p>
+<nav><button data-v="dash" class="on">Dashboard</button><button data-v="y2y">Y2Y</button><button data-v="data">Data</button></nav></header>
+<main>
+<div id="msg"></div>
+<section id="dash" class="view on">
+ <div class="bar"><label>Έτος <select id="yr"></select></label></div>
+ <div class="grid kpis" id="kpis"></div>
+ <div class="grid two">
+  <div class="card"><h2 id="t1"></h2><div class="tw"><table id="tp"></table></div></div>
+  <div class="card"><h2>Συνολικά από την έναρξη ανά πάρκο</h2><div class="tw"><table id="ta"></table></div></div>
+ </div>
+ <div class="grid two" style="margin-top:14px">
+  <div class="card"><h2>Μηνιαία παραγωγή (kWh)</h2><div class="cv"><canvas id="c1"></canvas></div></div>
+  <div class="card"><h2>Μηνιαίο έσοδο (€)</h2><div class="cv"><canvas id="c2"></canvas></div></div>
+  <div class="card"><h2>Ετήσια εξέλιξη — παραγωγή (kWh)</h2><div class="cv"><canvas id="c3"></canvas></div></div>
+  <div class="card"><h2>Ετήσια εξέλιξη — έσοδο (€)</h2><div class="cv"><canvas id="c4"></canvas></div></div>
+ </div>
+</section>
+<section id="y2y" class="view">
+ <div class="bar"><label>Πάρκο <select id="yp"></select></label>
+ <div class="seg" id="ym"><button data-m="kwh" class="on">Παραγωγή</button><button data-m="eur">Έσοδο</button></div></div>
+ <div class="card" style="margin-bottom:14px"><h2 id="t2"></h2><div class="cv"><canvas id="c5"></canvas></div></div>
+ <div class="card"><div class="tw"><table id="ty"></table></div></div>
+</section>
+<section id="data" class="view">
+ <div class="bar"><label>Πάρκο <select id="dp"></select></label><label>Έτος <select id="dy"></select></label></div>
+ <div class="card"><div class="tw" style="max-height:620px"><table id="td"></table></div></div>
+</section>
+</main>
+<script>
+/* ===== ΡΥΘΜΙΣΕΙΣ =====
+   Βάλε εδώ το ID του Google Sheet (το κομμάτι του link ανάμεσα στο /d/ και στο /edit).
+   Το Sheet πρέπει να έχει κοινοποίηση "Οποιοσδήποτε με το σύνδεσμο: Προβολή".
+   Όσο το SHEET_ID είναι κενό η σελίδα δείχνει τα δεδομένα δείγματος που είναι ενσωματωμένα. */
+const CONFIG={SHEET_ID:'',SHEET_NAME:'Καταχώρηση'};
+/* [έτος, μήνας, πάρκο, kWh, €] */
+const EMBED=[[2023,1,"Ανδριανός",0.0,null,0.0],[2023,1,"Άγιος Πρόδρομος",0.0,null,null],[2023,1,"Πεντάλοφος",86590.0,23766.0,null],[2023,2,"Ανδριανός",27858.0,2825,2825.0],[2023,2,"Άγιος Πρόδρομος",0.0,null,null],[2023,2,"Πεντάλοφος",118591.0,32607.0,null],[2023,3,"Ανδριανός",106063.0,9161,9161.0],[2023,3,"Άγιος Πρόδρομος",0.0,0,null],[2023,3,"Πεντάλοφος",153819.0,42131.0,null],[2023,4,"Ανδριανός",164465.0,10734,10734.0],[2023,4,"Άγιος Πρόδρομος",0.0,0,null],[2023,4,"Πεντάλοφος",189363.0,51847.0,null],[2023,5,"Ανδριανός",128074.0,9190,9190.0],[2023,5,"Άγιος Πρόδρομος",0.0,0,null],[2023,5,"Πεντάλοφος",158701.0,43518.0,null],[2023,6,"Ανδριανός",167299.0,11886,11886.0],[2023,6,"Άγιος Πρόδρομος",0.0,0,null],[2023,6,"Πεντάλοφος",214154.0,58530.0,null],[2023,7,"Ανδριανός",191416.0,14270,14270.0],[2023,7,"Άγιος Πρόδρομος",0.0,0,null],[2023,7,"Πεντάλοφος",271338.0,74656.0,null],[2023,8,"Ανδριανός",185386.0,14803,14803.0],[2023,8,"Άγιος Πρόδρομος",0.0,0,null],[2023,8,"Πεντάλοφος",237854.0,65039.0,null],[2023,9,"Ανδριανός",109990.0,17773.43476,33643.0],[2023,9,"Άγιος Πρόδρομος",98208.0,15869.56524,null],[2023,9,"Πεντάλοφος",165131.0,45289.0,null],[2023,10,"Ανδριανός",109864.0,8662.957093,18144.0],[2023,10,"Άγιος Πρόδρομος",120239.0,9481.042907,null],[2023,10,"Πεντάλοφος",132173.0,36285.0,null],[2023,11,"Ανδριανός",85305.0,6125.465233,12644.0],[2023,11,"Άγιος Πρόδρομος",90779.0,6518.534767,null],[2023,11,"Πεντάλοφος",78389.0,21589.0,null],[2023,12,"Ανδριανός",81255.0,5865.272395,11897.0],[2023,12,"Άγιος Πρόδρομος",83561.0,6031.727605,null],[2023,12,"Πεντάλοφος",75628.0,20782.0,null],[2024,1,"Ανδριανός",91701.0,6607.560533,14211.0],[2024,1,"Άγιος Πρόδρομος",105522.0,7603.439467,null],[2024,1,"Πεντάλοφος",86590.0,24420.0,null],[2024,2,"Ανδριανός",92171.0,5846.074374,13047.0],[2024,2,"Άγιος Πρόδρομος",113532.0,7200.925626,null],[2024,2,"Πεντάλοφος",88756.0,0.0,null],[2024,3,"Ανδριανός",127394.0,9935.046168,17833.0],[2024,3,"Άγιος Πρόδρομος",101273.0,7897.953832,null],[2024,3,"Πεντάλοφος",151955.0,71629.0,null],[2024,4,"Ανδριανός",159614.0,11092.94492,18190.0],[2024,4,"Άγιος Πρόδρομος",102118.0,7097.055079,null],[2024,4,"Πεντάλοφος",199877.0,54992.0,null],[2024,5,"Ανδριανός",158319.0,9763.129995,19527.0],[2024,5,"Άγιος Πρόδρομος",158331.0,9763.870005,null],[2024,5,"Πεντάλοφος",218406.0,0.0,null],[2024,6,"Ανδριανός",185584.0,14721.51084,29803.0],[2024,6,"Άγιος Πρόδρομος",190122.0,15081.48916,null],[2024,6,"Πεντάλοφος",254108.0,130003.0,null],[2024,7,"Ανδριανός",190120.0,17017.80438,33609.0],[2024,7,"Άγιος Πρόδρομος",185354.0,16591.19562,null],[2024,7,"Πεντάλοφος",263189.0,72412.0,null],[2024,8,"Ανδριανός",175916.0,12823.79437,25707.0],[2024,8,"Άγιος Πρόδρομος",176731.0,12883.20563,null],[2024,8,"Πεντάλοφος",233417.0,64220.0,null],[2024,9,"Ανδριανός",140486.0,6675.401535,13061.0],[2024,9,"Άγιος Πρόδρομος",134387.0,6385.598465,null],[2024,9,"Πεντάλοφος",171288.0,47127.0,null],[2024,10,"Ανδριανός",129115.0,8390.738086,17705.0],[2024,10,"Άγιος Πρόδρομος",143326.0,9314.261914,null],[2024,10,"Πεντάλοφος",142054.0,38927.0,null],[2024,11,"Ανδριανός",77574.0,5457.467337,11606.0],[2024,11,"Άγιος Πρόδρομος",87397.0,6148.532663,null],[2024,11,"Πεντάλοφος",81607.0,22427.0,null],[2024,12,"Ανδριανός",9167.994,1146.953878,10815.0],[2024,12,"Άγιος Πρόδρομος",77279.994,9668.046122,null],[2024,12,"Πεντάλοφος",61133.0,16820.0,null],[2025,1,"Ανδριανός",72054.0,6598.536743,14756.0],[2025,1,"Άγιος Πρόδρομος",89077.0,8157.463257,null],[2025,1,"Πεντάλοφος",70206.0,19310.0,null],[2025,2,"Ανδριανός",58872.0,3888.724654,7869.0],[2025,2,"Άγιος Πρόδρομος",60258.0,3980.275346,null],[2025,2,"Πεντάλοφος",81440.0,22337.0,null],[2025,3,"Ανδριανός",128114.0,4861.207282,8466.0],[2025,3,"Άγιος Πρόδρομος",95002.0,3604.792718,null],[2025,3,"Πεντάλοφος",142010.0,38955.0,null],[2025,4,"Ανδριανός",111203.0,7793.570356,15062.0],[2025,4,"Άγιος Πρόδρομος",103710.0,7268.429644,null],[2025,4,"Πεντάλοφος",132239.0,35789.0,null],[2025,5,"Ανδριανός",143451.0,9883.348911,20330.0],[2025,5,"Άγιος Πρόδρομος",151627.0,10446.65109,null],[2025,5,"Πεντάλοφος",170117.0,46576.0,null],[2025,6,"Ανδριανός",180284.0,20409.25446,36246.0],[2025,6,"Άγιος Πρόδρομος",139893.0,15836.74554,null],[2025,6,"Πεντάλοφος",228840.0,62912.0,null],[2025,7,"Ανδριανός",194833.0,6708.888579,13114.0],[2025,7,"Άγιος Πρόδρομος",186011.0,6405.111421,null],[2025,7,"Πεντάλοφος",247568.0,67622.0,null],[2025,8,"Ανδριανός",131496.0,8768.331062,17860.0],[2025,8,"Άγιος Πρόδρομος",136345.0,9091.668938,null],[2025,8,"Πεντάλοφος",232101.0,63838.0,null],[2025,9,"Ανδριανός",135663.0,8596.733445,18359.0],[2025,9,"Άγιος Πρόδρομος",154056.0,9762.266555,null],[2025,9,"Πεντάλοφος",176536.0,48306.0,null],[2025,10,"Ανδριανός",95447.0,5169.45974,11356.0],[2025,10,"Άγιος Πρόδρομος",114226.0,6186.54026,null],[2025,10,"Πεντάλοφος",112574.0,30928.0,null],[2025,11,"Ανδριανός",69608.0,5438.477891,12040.0],[2025,11,"Άγιος Πρόδρομος",84494.0,6601.522109,null],[2025,11,"Πεντάλοφος",73688.0,20267.0,null],[2025,12,"Ανδριανός",74231.0,6580.151551,13866.0],[2025,12,"Άγιος Πρόδρομος",82192.0,7285.848449,null],[2025,12,"Πεντάλοφος",67652.0,18607.0,null],[2026,1,"Ανδριανός",65180.0,-1323.924271,-2930.0],[2026,1,"Άγιος Πρόδρομος",79071.0,-1606.075729,null],[2026,1,"Πεντάλοφος",63562.0,17466.0,null],[2026,2,"Ανδριανός",89062.484,9554.993272,18246.0],[2026,2,"Άγιος Πρόδρομος",81009.23,8691.006728,null],[2026,2,"Πεντάλοφος",75551.0,21540.0,null],[2026,3,"Ανδριανός",131448.0,7142.145872,14453.0],[2026,3,"Άγιος Πρόδρομος",134553.0,7310.854128,null],[2026,3,"Πεντάλοφος",154028.0,42370.0,null],[2026,4,"Ανδριανός",97841.0,2386.743718,5238.0],[2026,4,"Άγιος Πρόδρομος",116883.0,2851.256282,null],[2026,4,"Πεντάλοφος",153855.0,0.0,null],[2026,5,"Ανδριανός",163946.0,8051.841111,16969.0],[2026,5,"Άγιος Πρόδρομος",181565.0,8917.158889,null],[2026,5,"Πεντάλοφος",222334.0,102902.0,null],[2026,6,"Ανδριανός",169892.0,8717.745973,18098.0],[2026,6,"Άγιος Πρόδρομος",182803.0,9380.254027,null],[2026,6,"Πεντάλοφος",234215.0,64428.0,null],[2026,7,"Ανδριανός",178620.0,12184.88566,23309.0],[2026,7,"Άγιος Πρόδρομος",163070.0,11124.11434,null],[2026,7,"Πεντάλοφος",253355.0,69693.0,null],[2026,8,"Ανδριανός",168762.0,11527.31,0.0],[2026,8,"Άγιος Πρόδρομος",173577.09,12055.9,null],[2026,8,"Πεντάλοφος",242253.0,null,null]];
+const MON=['Ιαν','Φεβ','Μαρ','Απρ','Μάι','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ'];
+const COL={'Ανδριανός':'#2563eb','Άγιος Πρόδρομος':'#16a34a','Πεντάλοφος':'#f59e0b'},EXTRA=['#9333ea','#e11d48','#0891b2','#65a30d'];
+const YC=['#94a3b8','#60a5fa','#2563eb','#f59e0b','#16a34a','#e11d48'];
+const $=id=>document.getElementById(id),nf=(v,d=0)=>v==null?'—':v.toLocaleString('el-GR',{maximumFractionDigits:d,minimumFractionDigits:d});
+const num=v=>{const x=parseFloat(String(v??'').replace(',','.'));return isNaN(x)?null:x};
+let R=[],parks=[],years=[],charts={},mode='kwh';
+const pc=p=>COL[p]||EXTRA[(parks.indexOf(p)+EXTRA.length)%EXTRA.length];
+function csv(t){const o=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){r.push(f);f=''}else if(c=='\n'){r.push(f);o.push(r);r=[];f=''}else if(c!='\r')f+=c}if(f||r.length){r.push(f);o.push(r)}return o}
+async function load(){
+ if(CONFIG.SHEET_ID){try{
+  const u=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}`;
+  const rs=await fetch(u);if(!rs.ok)throw 0;const t=csv(await rs.text()),h=t[0].map(x=>x.trim().toLowerCase());
+  const ix=k=>h.findIndex(x=>x.startsWith(k));const iy=ix('έτος'),im=ix('μήνας#'),ip=ix('πάρκο'),ik=ix('παραγωγή'),ie=ix('είσπραξη ('),ig=ix('κοινή');
+  if([iy,im,ip,ik,ie].includes(-1))throw 0;
+  R=t.slice(1).map(r=>({y:num(r[iy]),m:num(r[im]),p:(r[ip]||'').trim(),k:num(r[ik]),e:num(r[ie]),g:ig<0?null:num(r[ig])})).filter(r=>r.y&&r.m&&r.p);
+  $('upd').textContent='Ζωντανά δεδομένα από το Google Sheet';return}catch(e){$('msg').style.display='block';$('msg').textContent='Δεν ήταν δυνατή η ανάγνωση του Google Sheet. Εμφανίζονται τα δεδομένα δείγματος.'}}
+ R=EMBED.map(a=>({y:a[0],m:a[1],p:a[2],k:a[3],e:a[4],g:a[5]}));$('upd').textContent='Δεδομένα δείγματος (δεν έχει οριστεί Google Sheet)'}
+const sum=(f,k)=>{let s=null;for(const r of R)if(f(r)&&r[k]!=null)s=(s||0)+r[k];return s};
+const has=f=>R.some(f);
+function chart(id,type,labels,sets,o={}){if(charts[id])charts[id].destroy();
+ charts[id]=new Chart($(id),{type,data:{labels,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+ plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{x:{stacked:!!o.st,grid:{display:false}},y:{stacked:!!o.st,beginAtZero:true,ticks:{callback:v=>nf(v)}}}}})}
+function fillSel(id,vals,all){$(id).innerHTML=(all?`<option value="*">${all}</option>`:'')+vals.map(v=>`<option>${v}</option>`).join('')}
+function dash(){
+ const y=+$('yr').value,fy=r=>r.y==y;
+ const tk=sum(fy,'k'),te=sum(fy,'e'),n=R.filter(r=>fy(r)&&r.k).length;
+ const best=parks.map(p=>[p,sum(r=>fy(r)&&r.p==p,'e')||0]).sort((a,b)=>b[1]-a[1])[0];
+ $('kpis').innerHTML=[['Παραγωγή '+y,nf(tk)+' kWh','όλα τα πάρκα'],['Έσοδο '+y,nf(te,0)+' €','όλα τα πάρκα'],['Μέση τιμή',te&&tk?nf(te/tk,4)+' €/kWh':'—','έσοδο ÷ παραγωγή'],['Υψηλότερο έσοδο',best?best[0]:'—',best?nf(best[1])+' €':'']]
+  .map(a=>`<div class="card kpi"><small>${a[0]}</small><b>${a[1]}</b><span>${a[2]}</span></div>`).join('');
+ $('t1').textContent='Σύνοψη έτους '+y+' ανά πάρκο';
+ const tbl=(f)=>{let h='<tr><th>Πάρκο</th><th>Παραγωγή (kWh)</th><th>Έσοδο (€)</th><th>€/kWh</th></tr>';
+  for(const p of parks){const k=sum(r=>f(r)&&r.p==p,'k'),e=sum(r=>f(r)&&r.p==p,'e');h+=`<tr><td><span class="dot" style="background:${pc(p)}"></span>${p}</td><td>${nf(k)}</td><td>${nf(e)}</td><td>${k&&e?nf(e/k,4):'—'}</td></tr>`}
+  const k=sum(f,'k'),e=sum(f,'e');return h+`<tr class="tot"><td>ΣΥΝΟΛΟ</td><td>${nf(k)}</td><td>${nf(e)}</td><td>${k&&e?nf(e/k,4):'—'}</td></tr>`};
+ $('tp').innerHTML=tbl(fy);$('ta').innerHTML=tbl(()=>true);
+ const mset=(k,div)=>parks.map(p=>({label:p,backgroundColor:pc(p),borderRadius:3,data:MON.map((_,i)=>{const v=sum(r=>r.y==y&&r.m==i+1&&r.p==p,k);return v==null?null:v/div})}));
+ chart('c1','bar',MON,mset('k',1),{st:1});chart('c2','bar',MON,mset('e',1),{st:1});
+ const ys=(k,div)=>parks.map(p=>({label:p,backgroundColor:pc(p),borderRadius:3,data:years.map(a=>{const v=sum(r=>r.y==a&&r.p==p,k);return v==null?null:v/div})}));
+ chart('c3','bar',years,ys('k',1),{st:1});chart('c4','bar',years,ys('e',1),{st:1})}
+function y2y(){
+ const p=$('yp').value,pf=r=>p=='*'||r.p==p,div=1;
+ $('t2').textContent=(p=='*'?'Όλα τα πάρκα':p)+' — '+(mode=='kwh'?'παραγωγή (kWh)':'έσοδο (€)')+' ανά μήνα';
+ const cell=(m,yy)=>{if(!has(r=>pf(r)&&r.y==yy&&r.m==m&&r[mode]!=null))return null;return sum(r=>pf(r)&&r.y==yy&&r.m==m,mode)/div};
+ chart('c5','bar',MON,years.map((yy,i)=>({label:yy,backgroundColor:YC[i%YC.length],borderRadius:3,data:MON.map((_,m)=>cell(m+1,yy))})));
+ const d=(a,b)=>a==null||b==null||b==0?'<td class="na">—</td>':`<td class="${a>=b?'up':'down'}">${a>=b?'▲':'▼'} ${nf(Math.abs((a-b)/b)*100,1)}%</td>`;
+ let h='<tr><th>Μήνας</th>'+years.map(a=>`<th>${a}</th>`).join('')+years.slice(1).map((a,i)=>`<th>Δ% ${a} vs ${years[i]}</th>`).join('')+'</tr>';
+ const dd=0,tot=years.map(()=>null);
+ for(let m=1;m<=12;m++){const row=years.map(a=>cell(m,a));row.forEach((v,i)=>{if(v!=null)tot[i]=(tot[i]||0)+v});
+  h+=`<tr><td>${MON[m-1]}</td>`+row.map(v=>`<td>${nf(v,dd)}</td>`).join('')+row.slice(1).map((v,i)=>d(v,row[i])).join('')+'</tr>'}
+ h+='<tr class="tot"><td>ΣΥΝΟΛΟ</td>'+tot.map(v=>`<td>${nf(v,dd)}</td>`).join('')+tot.slice(1).map((v,i)=>d(v,tot[i])).join('')+'</tr>';
+ $('ty').innerHTML=h+`<caption style="caption-side:bottom;text-align:left;color:#6b7686;font-size:12px;padding-top:8px">Οι μήνες χωρίς καταχώρηση δεν συγκρίνονται. Τα ετήσια σύνολα μπορεί να αφορούν ημιτελή έτη.</caption>`}
+function dat(){
+ const p=$('dp').value,y=$('dy').value;
+ const rows=R.filter(r=>(p=='*'||r.p==p)&&(y=='*'||r.y==y)).sort((a,b)=>b.y-a.y||b.m-a.m||parks.indexOf(a.p)-parks.indexOf(b.p));
+ $('td').innerHTML='<tr><th>Έτος</th><th>Μήνας</th><th>Πάρκο</th><th>Παραγωγή (kWh)</th><th>Κοινή είσπραξη (€)</th><th>Είσπραξη (€)</th><th>€/kWh</th></tr>'+
+ rows.map(r=>`<tr><td>${r.y}</td><td>${MON[r.m-1]}</td><td><span class="dot" style="background:${pc(r.p)}"></span>${r.p}</td><td>${nf(r.k)}</td><td>${r.g?nf(r.g,2):'—'}</td><td>${nf(r.e,2)}</td><td>${r.k&&r.e?nf(r.e/r.k,4):'—'}</td></tr>`).join('')}
+(async()=>{
+ await load();parks=[...new Set(R.map(r=>r.p))];years=[...new Set(R.map(r=>r.y))].sort();
+ fillSel('yr',[...years].reverse());$('yr').value=years[years.length-1];
+ fillSel('yp',parks,'Όλα τα πάρκα');fillSel('dp',parks,'Όλα τα πάρκα');fillSel('dy',[...years].reverse(),'Όλα τα έτη');
+ $('yr').onchange=dash;$('yp').onchange=y2y;$('dp').onchange=$('dy').onchange=dat;
+ $('ym').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;[...$('ym').children].forEach(x=>x.classList.toggle('on',x==b));y2y()};
+ document.querySelector('nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x==b));
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==b.dataset.v))};
+ dash();y2y();dat()})();
+</script>
+</body>
+</html>
