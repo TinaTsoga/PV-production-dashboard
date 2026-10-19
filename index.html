@@ -41,14 +41,15 @@ tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var
 <main>
 <div id="msg"></div>
 <section id="dash" class="view on">
- <div class="bar"><b class="tag">Α</b><label>Πάρκο <select id="dp0"></select></label><label>Μήνας <select id="dm"></select></label><label>Έτος <select id="yr"></select></label><button id="cbtn" class="btn">⇄ Σύγκριση</button></div>
- <div class="bar" id="barB" style="display:none"><b class="tag b">Βάση</b><label>Πάρκο <select id="bp"></select></label><label>Μήνας <select id="bm"></select></label><label>Έτος <select id="by"></select></label></div>
+ <div class="bar"><b class="tag">Βλέπω</b><label>Πάρκο <select id="dp0"></select></label><label>Μήνας <select id="dm"></select></label><label>Έτος <select id="yr"></select></label><button id="cbtn" class="btn">＋ Σύγκριση με άλλη επιλογή</button></div>
+ <div class="bar" id="barB" style="display:none"><b class="tag b">Συγκρίνω με</b><label>Πάρκο <select id="bp"></select></label><label>Μήνας <select id="bm"></select></label><label>Έτος <select id="by"></select></label></div>
  <p id="dn" style="color:#7a5600;font-size:13px;margin:0 0 12px"></p>
  <div class="grid kpis" id="kpis"></div>
  <div class="grid two">
   <div class="card" id="ct1"><h2 id="t1"></h2><div class="tw"><table id="tp"></table></div></div>
   <div class="card" id="cta"><h2 id="tat"></h2><div class="tw"><table id="ta"></table></div></div>
  </div>
+ <div class="card" id="cyy" style="display:none;margin-top:14px"><h2 id="cyyt"></h2><div class="tw"><table id="cyyt2"></table></div></div>
  <div class="grid two" style="margin-top:14px">
   <div class="card"><h2 id="c1t"></h2><div class="cv"><canvas id="c1"></canvas></div></div>
   <div class="card"><h2 id="c2t"></h2><div class="cv"><canvas id="c2"></canvas></div></div>
@@ -136,11 +137,19 @@ function dash(){
  }else{
   const rc=(name,fa,fb,c)=>{const x=met(fa),y=met(fb);return `<tr${c?` class="${c}"`:''}><td>${name}</td><td>${nf(x.k)}</td><td>${nf(y.k)}</td><td class="${cl(pct(x.k,y.k))}">${ft(pct(x.k,y.k))}</td><td>${nf(x.e)}</td><td>${nf(y.e)}</td><td class="${cl(pct(x.e,y.e))}">${ft(pct(x.e,y.e))}</td></tr>`};
   const both=A.p=='*'&&B.p=='*',fb0=tf(B);
-  $('t1').textContent=`Α: ${sl(A)}  ·  Βάση: ${sl(B)}`;
-  $('tp').innerHTML=`<tr><th>${both?'Πάρκο':'Στοιχείο'}</th><th>Παραγωγή Α (kWh)</th><th>Παραγωγή Βάση (kWh)</th><th>Δ%</th><th>Έσοδο Α (€)</th><th>Έσοδο Βάση (€)</th><th>Δ%</th></tr>`+
+  $('t1').textContent=`Επιλογή: ${sl(A)}  ·  Σύγκριση με: ${sl(B)}`;
+  $('tp').innerHTML=`<tr><th>${both?'Πάρκο':'Στοιχείο'}</th><th>Παραγωγή — επιλογή (kWh)</th><th>Παραγωγή — σύγκριση (kWh)</th><th>Δ%</th><th>Έσοδο — επιλογή (€)</th><th>Έσοδο — σύγκριση (€)</th><th>Δ%</th></tr>`+
    (both?parks.map(q=>rc(dot(q),r=>f0(r)&&r.p==q,r=>fb0(r)&&r.p==q)).join('')+rc('ΣΥΝΟΛΟ',fs(A),fs(B),'tot'):rc(`${sl(A)} έναντι ${sl(B)}`,fs(A),fs(B)));
  }
  $('cta').style.display=comp?'none':'';$('ct1').style.gridColumn=comp?'1/-1':'';
+
+ $('cyy').style.display=(!comp&&A.y=='*')?'':'none';
+ if(!comp&&A.y=='*'){const fm=r=>pf(A)(r)&&(A.m=='*'||r.m==+A.m);
+  let h='<tr><th>Έτος</th><th>Παραγωγή (kWh)</th><th>Μεταβολή %</th><th>Έσοδο (€)</th><th>Μεταβολή %</th><th>€/kWh</th></tr>';
+  years.forEach((y0,i)=>{const m=met(r=>fm(r)&&r.y==y0),pm=i?met(r=>fm(r)&&r.y==years[i-1]):null,dk=pm?pct(m.k,pm.k):null,de=pm?pct(m.e,pm.e):null;
+   h+=`<tr><td>${y0}</td><td>${nf(m.k)}</td><td class="${cl(dk)}">${ft(dk)}</td><td>${nf(m.e)}</td><td class="${cl(de)}">${ft(de)}</td><td>${m.r?nf(m.r,4):'—'}</td></tr>`});
+  $('cyyt2').innerHTML=h+'<caption style="caption-side:bottom;text-align:left;color:#6b7686;font-size:12px;padding-top:8px">Η μεταβολή υπολογίζεται σε σχέση με το προηγούμενο έτος.</caption>';
+  $('cyyt').textContent='Έτος προς έτος — '+sl({p:A.p,m:A.m,y:'*'}).replace(/^Σύνολο$/,'όλα τα πάρκα και όλοι οι μήνες')}
  /* μηνιαία γραφήματα */
  if(!comp){
   const per=[...new Set(R.filter(r=>psA.includes(r.p)).map(r=>r.y*100+r.m))].sort((x,y)=>x-y),allY=A.y=='*';
@@ -151,9 +160,9 @@ function dash(){
   $('c1t').textContent='Μηνιαία παραγωγή (kWh)'+ty;$('c2t').textContent='Μηνιαίο έσοδο (€)'+ty;
  }else{
   const cm=(s,k)=>MON.map((_,i)=>sum(r=>pf(s)(r)&&(s.y=='*'||r.y==+s.y)&&r.m==i+1,k));
-  const ms=k=>[{label:'Α: '+sl2(A),backgroundColor:'#2563eb',borderRadius:3,data:cm(A,k)},{label:'Βάση: '+sl2(B),backgroundColor:'#f59e0b',borderRadius:3,data:cm(B,k)}];
+  const ms=k=>[{label:'Επιλογή: '+sl2(A),backgroundColor:'#2563eb',borderRadius:3,data:cm(A,k)},{label:'Σύγκριση: '+sl2(B),backgroundColor:'#f59e0b',borderRadius:3,data:cm(B,k)}];
   chart('c1','bar',MON,ms('k'));chart('c2','bar',MON,ms('e'));
-  $('c1t').textContent='Μηνιαία παραγωγή (kWh) — Α έναντι βάσης';$('c2t').textContent='Μηνιαίο έσοδο (€) — Α έναντι βάσης';
+  $('c1t').textContent='Μηνιαία παραγωγή (kWh) — επιλογή έναντι σύγκρισης';$('c2t').textContent='Μηνιαίο έσοδο (€) — επιλογή έναντι σύγκρισης';
  }
  /* ετήσια εξέλιξη (ακολουθεί Πάρκο και Μήνα του Α) */
  const ys=k=>psA.map(q=>({label:q,backgroundColor:pc(q),borderRadius:3,data:years.map(yy=>sum(r=>r.y==yy&&r.p==q&&(A.m=='*'||r.m==+A.m),k))}));
@@ -185,7 +194,7 @@ function dat(){
  $('dm').innerHTML=mo;$('bm').innerHTML=mo;fillSel('bp',parks,'Όλα τα πάρκα');fillSel('by',[...years].reverse(),'Όλα τα έτη');
  $('yr').value=years[years.length-1];
  ['dp0','dm','yr','bp','bm','by'].forEach(id=>$(id).onchange=dash);
- $('cbtn').onclick=()=>{comp=!comp;$('barB').style.display=comp?'flex':'none';$('cbtn').classList.toggle('on',comp);$('cbtn').textContent=comp?'✕ Κλείσιμο σύγκρισης':'⇄ Σύγκριση';
+ $('cbtn').onclick=()=>{comp=!comp;$('barB').style.display=comp?'flex':'none';$('cbtn').classList.toggle('on',comp);$('cbtn').textContent=comp?'✕ Κλείσιμο σύγκρισης':'＋ Σύγκριση με άλλη επιλογή';
   if(comp){$('bp').value=$('dp0').value;$('bm').value=$('dm').value;const yi=years.indexOf(+$('yr').value);$('by').value=yi>0?String(years[yi-1]):$('yr').value}
   dash()};
  fillSel('yp',parks,'Όλα τα πάρκα');fillSel('dp',parks,'Όλα τα πάρκα');fillSel('dy',[...years].reverse(),'Όλα τα έτη');
