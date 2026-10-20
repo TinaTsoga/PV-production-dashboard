@@ -30,10 +30,14 @@ tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;background:#fff;padding:7px 14px;font:inherit;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
 .view{display:none}.view.on{display:block}
 @media(max-width:600px){.kpi b{font-size:22px}header h1{font-size:18px}}
-.tag{background:var(--acc);color:#fff;border-radius:6px;padding:2px 10px;font-size:12px;font-weight:700}.tag.b{background:#f59e0b}
+.tag{background:var(--acc);color:#fff;border-radius:6px;padding:2px 10px;font-size:12px;font-weight:700}.tag.b{background:#64748b}
 .btn{margin-left:auto;font:inherit;font-weight:600;padding:7px 14px;border:1px solid var(--acc);color:var(--acc);background:#fff;border-radius:8px;cursor:pointer}.btn.on{background:var(--acc);color:#fff}
 .kpi .d{font-size:14px;font-weight:700;margin-top:4px}.kpi .d em{font-style:normal;font-weight:400;color:var(--mut)}
 .chip{display:inline-flex;gap:6px;align-items:center;padding:5px 13px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:14px;user-select:none}.chip.on{border-color:var(--acc);background:#e8f1fe;font-weight:600}.chip input{accent-color:var(--acc)}
+.tip{position:relative}.tag.tip{cursor:help}
+.tip::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 8px);width:max-content;max-width:min(300px,80vw);background:#1b2433;color:#fff;padding:8px 11px;border-radius:8px;font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;white-space:normal;box-shadow:0 4px 14px rgba(20,30,50,.25);opacity:0;pointer-events:none;transition:opacity .15s;z-index:50}
+.tip.tip-r::after{left:auto;right:0}.tip:hover::after,.tip:focus::after{opacity:1}
+.sq{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
 </style>
 </head>
 <body>
@@ -42,9 +46,9 @@ tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var
 <main>
 <div id="msg"></div>
 <section id="dash" class="view on">
- <div class="bar"><b class="tag">Βλέπω</b><label>Πάρκο <select id="dp0"></select></label><label>Μήνας <select id="dm"></select></label><label>Έτος <select id="yr"></select></label><button id="cbtn" class="btn">＋ Σύγκριση με άλλη επιλογή</button></div>
- <div class="bar" id="barB" style="display:none"><b class="tag b">Συγκρίνω με</b><label>Πάρκο <select id="bp"></select></label><label>Μήνας <select id="bm"></select></label><label>Έτος <select id="by"></select></label></div>
- <div class="bar" id="barY" style="display:none"><b class="tag">Έτη</b><span id="yrs" style="display:flex;gap:8px;flex-wrap:wrap"></span><span style="color:#6b7686;font-size:13px">Βγάλε το τικ από τα έτη που δεν θέλεις να βλέπεις</span></div>
+ <div class="bar"><b class="tag tip" id="tagA" tabindex="0" data-tip="Διάλεξε πάρκο, μήνα και έτος για να δεις τα νούμερά τους. Με «Όλα τα έτη» βλέπεις όλα τα έτη μαζί.">Βάση Ανάλυσης</b><label>Πάρκο <select id="dp0"></select></label><label>Μήνας <select id="dm"></select></label><label>Έτος <select id="yr"></select></label><button id="cbtn" class="btn tip tip-r" data-tip="Ανοίγει δεύτερη γραμμή επιλογών (Δεδομένα Σύγκρισης). Έτσι βάζεις δίπλα δίπλα δύο πάρκα, μήνες ή έτη και βλέπεις τη διαφορά τους σε ποσοστό.">＋ Προσθήκη Σύγκρισης</button></div>
+ <div class="bar" id="barB" style="display:none"><b class="tag b tip" id="tagB" tabindex="0" data-tip="Διάλεξε με τι θέλεις να συγκρίνεις τη Βάση Ανάλυσης. Τα ποσοστά δείχνουν πόσο μεγαλύτερη ή μικρότερη είναι η Βάση Ανάλυσης σε σχέση με αυτά τα δεδομένα.">Δεδομένα Σύγκρισης</b><label>Πάρκο <select id="bp"></select></label><label>Μήνας <select id="bm"></select></label><label>Έτος <select id="by"></select></label></div>
+ <div class="bar" id="barY" style="display:none"><b class="tag tip" tabindex="0" data-tip="Επίλεξε τα επιθυμητά έτη">Έτη</b><span id="yrs" style="display:flex;gap:8px;flex-wrap:wrap"></span></div>
  <p id="dn" style="color:#7a5600;font-size:13px;margin:0 0 12px"></p>
  <div class="grid kpis" id="kpis"></div>
  <div class="card" id="cyy" style="display:none;margin-bottom:14px"><h2 id="cyyt"></h2><div class="bar" style="margin:0 0 10px"><label>Μεταβολή % σε σχέση με <select id="cyyb"></select></label></div><div class="tw"><table id="cyyt2"></table></div></div>
@@ -119,10 +123,15 @@ function dash(){
  const ft=v=>v==null?'—':`${v>=0?'▲':'▼'} ${nf(Math.abs(v),1)}%`,cl=v=>v==null?'na':v>=0?'up':'down';
  const dot=q=>`<span class="dot" style="background:${pc(q)}"></span>${q}`;
  const psA=A.p=='*'?parks:[A.p];
+ const NEU='#475569',lighten=(h,k)=>{const n=parseInt(h.slice(1),16),m=c=>Math.round(c+(255-c)*k);return '#'+[n>>16,(n>>8)&255,n&255].map(m).map(x=>x.toString(16).padStart(2,'0')).join('')};
+ const ink=h=>{const n=parseInt(h.slice(1),16);return 0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255)>140?'#1b2433':'#fff'};
+ const baseCol=s=>s.p=='*'?NEU:pc(s.p);let cA=baseCol(A),cB=baseCol(B);if(cA==cB)cB=lighten(cB,0.5);
+ const sq=c=>`<i class="sq" style="background:${c}"></i>`;
+ $('tagA').style.background=comp?cA:'';$('tagA').style.color=comp?ink(cA):'';$('tagB').style.background=cB;$('tagB').style.color=ink(cB);
  const a=met(fs(A)),b=comp?met(fs(B)):null;
  /* κάρτες */
  const defs=[['Παραγωγή','k',v=>nf(v)+' kWh'],['Έσοδο','e',v=>nf(v)+' €'],['Μέση τιμή','r',v=>v==null?'—':nf(v,4)+' €/kWh']];
- let cards=defs.map(([t,k,fm])=>`<div class="card kpi"><small>${t}</small><b>${fm(a[k])}</b><span>${sl(A)}</span>`+(comp?`<div class="d ${cl(pct(a[k],b[k]))}">${ft(pct(a[k],b[k]))} <em>σε σχέση με ${fm(b[k])} (${sl(B)})</em></div>`:'')+'</div>');
+ let cards=defs.map(([t,k,fm])=>`<div class="card kpi"><small>${t}</small><b>${fm(a[k])}</b><span>${comp?sq(cA):''}${sl(A)}</span>`+(comp?`<div class="d ${cl(pct(a[k],b[k]))}">${ft(pct(a[k],b[k]))} <em>σε σχέση με ${fm(b[k])} (${sq(cB)}${sl(B)})</em></div>`:'')+'</div>');
  if(!comp&&A.m=='*'){const mm={};R.filter(fs(A)).forEach(r=>{const k=r.y*100+r.m;mm[k]=(mm[k]||0)+(r.k||0)});const bm=Object.entries(mm).sort((x,y)=>y[1]-x[1])[0];
   cards.push(`<div class="card kpi"><small>Καλύτερος μήνας (παραγωγή)</small><b>${bm?MON[bm[0]%100-1]+' '+Math.floor(bm[0]/100):'—'}</b><span>${bm?nf(bm[1])+' kWh':''}</span></div>`)}
  $('kpis').innerHTML=cards.join('');
@@ -143,8 +152,8 @@ function dash(){
  }else{
   const rc=(name,fa,fb,c)=>{const x=met(fa),y=met(fb);return `<tr${c?` class="${c}"`:''}><td>${name}</td><td>${nf(x.k)}</td><td>${nf(y.k)}</td><td class="${cl(pct(x.k,y.k))}">${ft(pct(x.k,y.k))}</td><td>${nf(x.e)}</td><td>${nf(y.e)}</td><td class="${cl(pct(x.e,y.e))}">${ft(pct(x.e,y.e))}</td></tr>`};
   const both=A.p=='*'&&B.p=='*',fb0=tf(B);
-  $('t1').textContent=`Επιλογή: ${sl(A)}  ·  Σύγκριση με: ${sl(B)}`;
-  $('tp').innerHTML=`<tr><th>${both?'Πάρκο':'Στοιχείο'}</th><th>Παραγωγή — επιλογή (kWh)</th><th>Παραγωγή — σύγκριση (kWh)</th><th>Δ%</th><th>Έσοδο — επιλογή (€)</th><th>Έσοδο — σύγκριση (€)</th><th>Δ%</th></tr>`+
+  $('t1').textContent=`Βάση Ανάλυσης: ${sl(A)}  ·  Δεδομένα Σύγκρισης: ${sl(B)}`;
+  $('tp').innerHTML=`<tr><th>${both?'Πάρκο':'Στοιχείο'}</th><th>${sq(cA)}Παραγωγή — Βάση Ανάλυσης (kWh)</th><th>${sq(cB)}Παραγωγή — Δεδομένα Σύγκρισης (kWh)</th><th>Δ%</th><th>${sq(cA)}Έσοδο — Βάση Ανάλυσης (€)</th><th>${sq(cB)}Έσοδο — Δεδομένα Σύγκρισης (€)</th><th>Δ%</th></tr>`+
    (both?parks.map(q=>rc(dot(q),r=>f0(r)&&r.p==q,r=>fb0(r)&&r.p==q)).join('')+rc('ΣΥΝΟΛΟ',fs(A),fs(B),'tot'):rc(`${sl(A)} έναντι ${sl(B)}`,fs(A),fs(B)));
  }
  $('cta').style.display=comp?'none':'';$('ct1').style.gridColumn=comp?'1/-1':'';
@@ -168,9 +177,9 @@ function dash(){
   $('c1t').textContent='Μηνιαία παραγωγή (kWh)'+ty;$('c2t').textContent='Μηνιαίο έσοδο (€)'+ty;
  }else{
   const cm=(s,k)=>MON.map((_,i)=>sum(r=>pf(s)(r)&&(s.y=='*'||r.y==+s.y)&&r.m==i+1,k));
-  const ms=k=>[{label:'Επιλογή: '+sl2(A),backgroundColor:'#2563eb',borderRadius:3,data:cm(A,k)},{label:'Σύγκριση: '+sl2(B),backgroundColor:'#f59e0b',borderRadius:3,data:cm(B,k)}];
+  const ms=k=>[{label:'Βάση Ανάλυσης: '+sl2(A),backgroundColor:cA,borderRadius:3,data:cm(A,k)},{label:'Δεδομένα Σύγκρισης: '+sl2(B),backgroundColor:cB,borderRadius:3,data:cm(B,k)}];
   chart('c1','bar',MON,ms('k'));chart('c2','bar',MON,ms('e'));
-  $('c1t').textContent='Μηνιαία παραγωγή (kWh) — επιλογή έναντι σύγκρισης';$('c2t').textContent='Μηνιαίο έσοδο (€) — επιλογή έναντι σύγκρισης';
+  $('c1t').textContent='Μηνιαία παραγωγή (kWh) — Βάση Ανάλυσης έναντι Δεδομένων Σύγκρισης';$('c2t').textContent='Μηνιαίο έσοδο (€) — Βάση Ανάλυσης έναντι Δεδομένων Σύγκρισης';
  }
  /* ετήσια εξέλιξη (ακολουθεί Πάρκο και Μήνα του Α) */
  const ys=k=>psA.map(q=>({label:q,backgroundColor:pc(q),borderRadius:3,data:yl.map(yy=>sum(r=>r.y==yy&&r.p==q&&(A.m=='*'||r.m==+A.m),k))}));
@@ -207,7 +216,7 @@ function dat(){
   c.checked?ySel.add(+c.value):ySel.delete(+c.value);c.parentNode.classList.toggle('on',c.checked);dash()};
  $('cyyb').onchange=dash;
  ['dp0','dm','yr','bp','bm','by'].forEach(id=>$(id).onchange=dash);
- $('cbtn').onclick=()=>{comp=!comp;$('barB').style.display=comp?'flex':'none';$('cbtn').classList.toggle('on',comp);$('cbtn').textContent=comp?'✕ Κλείσιμο σύγκρισης':'＋ Σύγκριση με άλλη επιλογή';
+ $('cbtn').onclick=()=>{comp=!comp;$('barB').style.display=comp?'flex':'none';$('cbtn').classList.toggle('on',comp);$('cbtn').textContent=comp?'✕ Κατάργηση Σύγκρισης':'＋ Προσθήκη Σύγκρισης';$('cbtn').dataset.tip=comp?'Κλείνει τη γραμμή Δεδομένα Σύγκρισης και επιστρέφεις στην απλή προβολή της Βάσης Ανάλυσης.':'Ανοίγει δεύτερη γραμμή επιλογών (Δεδομένα Σύγκρισης). Έτσι βάζεις δίπλα δίπλα δύο πάρκα, μήνες ή έτη και βλέπεις τη διαφορά τους σε ποσοστό.';
   if(comp){$('bp').value=$('dp0').value;$('bm').value=$('dm').value;const yi=years.indexOf(+$('yr').value);$('by').value=yi>0?String(years[yi-1]):$('yr').value}
   dash()};
  fillSel('yp',parks,'Όλα τα πάρκα');fillSel('dp',parks,'Όλα τα πάρκα');fillSel('dy',[...years].reverse(),'Όλα τα έτη');
