@@ -53,6 +53,8 @@ tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var
  <div class="bar"><b class="tag" id="tagA">Βάση Ανάλυσης</b><div class="fld">Πάρκο <span id="dp0"></span></div><div class="fld">Μήνας <span id="dm"></span></div><div class="fld">Έτος <span id="yr"></span></div><button id="cbtn" class="btn">＋ Προσθήκη Σύγκρισης</button></div>
  <div class="bar" id="barB" style="display:none"><b class="tag b" id="tagB">Δεδομένα Σύγκρισης</b><div class="fld">Πάρκο <span id="bp"></span></div><div class="fld">Μήνας <span id="bm"></span></div><div class="fld">Έτος <span id="by"></span></div></div>
  <p id="dn" style="color:#7a5600;font-size:13px;margin:0 0 12px"></p>
+ <div class="card" id="dempty" style="display:none;color:#7a5600;background:#fff6e0"></div>
+ <div id="dres">
  <div class="grid kpis" id="kpis"></div>
  <div class="card" id="cyy" style="display:none;margin-bottom:14px"><h2 id="cyyt"></h2><div class="bar" style="margin:0 0 10px"><label>Μεταβολή % σε σχέση με <select id="cyyb"></select></label></div><div class="tw"><table id="cyyt2"></table></div></div>
  <div class="grid two">
@@ -64,6 +66,8 @@ tr.tot td{font-weight:700;background:#f7f9fc}.up{color:var(--up)}.down{color:var
   <div class="card"><h2 id="c2t"></h2><div class="cv"><canvas id="c2"></canvas></div></div>
   <div class="card"><h2 id="c3t"></h2><div class="cv"><canvas id="c3"></canvas></div></div>
   <div class="card"><h2 id="c4t"></h2><div class="cv"><canvas id="c4"></canvas></div></div>
+  <div class="card" style="grid-column:1/-1"><h2 id="c6t"></h2><div class="cv" style="height:340px"><canvas id="c6"></canvas></div></div>
+ </div>
  </div>
 </section>
 <section id="y2y" class="view">
@@ -106,9 +110,14 @@ async function load(){
  R=EMBED.map(a=>({y:a[0],m:a[1],p:a[2],k:a[3],e:a[4],g:a[5]}));$('upd').textContent='Δεδομένα δείγματος (δεν έχει οριστεί Google Sheet)'}
 const sum=(f,k)=>{let s=null;for(const r of R)if(f(r)&&r[k]!=null)s=(s||0)+r[k];return s};
 const has=f=>R.some(f);
+const pctPlugin={id:'pctlbl',afterDatasetsDraw(ch,_a,opt){const d=opt&&opt.d;if(!d)return;const c=ch.ctx;c.save();c.font='600 10.5px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';c.textAlign='center';c.textBaseline='bottom';
+ d.forEach((v,i)=>{if(v==null||!isFinite(v))return;let top=Infinity;ch.data.datasets.forEach((ds,di)=>{if(!ch.isDatasetVisible(di)||ds.data[i]==null)return;const el=ch.getDatasetMeta(di).data[i];if(el&&isFinite(el.y))top=Math.min(top,el.y)});
+  if(!isFinite(top))return;c.fillStyle=v>=0?'#15803d':'#c0392b';c.fillText((v>=0?'▲':'▼')+nf(Math.abs(v),1)+'%',ch.scales.x.getPixelForValue(i),top-3)});c.restore()}};
 function chart(id,type,labels,sets,o={}){if(charts[id])charts[id].destroy();
- charts[id]=new Chart($(id),{type,data:{labels,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
- plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{x:{stacked:!!o.st,grid:{display:false}},y:{stacked:!!o.st,beginAtZero:true,ticks:{callback:v=>nf(v)}}}}})}
+ const cb={label:o.lbl||(c=>`${c.dataset.label}: ${nf(c.parsed.y)}`)};if(o.foot)cb.footer=it=>o.foot(it[0].dataIndex);
+ charts[id]=new Chart($(id),{type,data:{labels,datasets:sets},plugins:[pctPlugin],options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},layout:{padding:{top:o.deltas?18:4}},
+ plugins:{legend:{position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:cb},pctlbl:{d:o.deltas||null}},
+ scales:o.scales||{x:{stacked:!!o.st,grid:{display:false}},y:{stacked:!!o.st,beginAtZero:true,ticks:{callback:v=>nf(v)}}}}})}
 function fillSel(id,vals,all){$(id).innerHTML=(all?`<option value="*">${all}</option>`:'')+vals.map(v=>`<option>${v}</option>`).join('')}
 const MS={};
 function closeMS(){document.querySelectorAll('.ms.open').forEach(x=>x.classList.remove('open'))}
@@ -118,21 +127,27 @@ function msCreate(id,items,allLabel,noun,o={}){
  const btn=root.querySelector('.msb'),pan=root.querySelector('.msp'),isAll=()=>sel.size==items.length;
  pan.innerHTML=`<label class="mso all"><input type="checkbox" data-v="*">${allLabel}</label>`+items.map(i=>`<label class="mso"><input type="checkbox" data-v="${i.v}">${i.c?`<i class="sq" style="background:${i.c}"></i>`:''}${i.t}</label>`).join('');
  const render=()=>{const nm=items.filter(i=>sel.has(i.v)).map(i=>i.t);
-  root.querySelector('.mst').textContent=isAll()?allLabel:(nm.length<=3?nm.join(', '):nm.length+' '+noun);
-  pan.querySelectorAll('input').forEach(c=>{c.checked=c.dataset.v=='*'?isAll():sel.has(items.find(i=>String(i.v)==c.dataset.v).v)})};
+  root.querySelector('.mst').textContent=isAll()?allLabel:(!nm.length?(o.none||'Καμία επιλογή'):nm.length<=3?nm.join(', '):nm.length+' '+noun);
+  pan.querySelectorAll('input').forEach(c=>{if(c.dataset.v=='*'){c.checked=isAll();c.indeterminate=!isAll()&&sel.size>0}else c.checked=sel.has(items.find(i=>String(i.v)==c.dataset.v).v)})};
  pan.onchange=e=>{const c=e.target,v=c.dataset.v;
-  if(v=='*')sel=new Set(items.map(i=>i.v));
-  else{const it=items.find(i=>String(i.v)==v);if(c.checked)sel.add(it.v);else{if(sel.size==1){render();return}sel.delete(it.v)}}
+  if(v=='*')sel=c.checked?new Set(items.map(i=>i.v)):new Set();
+  else{const it=items.find(i=>String(i.v)==v);if(c.checked)sel.add(it.v);else sel.delete(it.v)}
   render();if(o.onchange)o.onchange()};
  btn.onclick=e=>{e.stopPropagation();const open=root.classList.contains('open');closeMS();if(!open)root.classList.add('open')};
  pan.onclick=e=>e.stopPropagation();
- MS[id]={get:()=>isAll()?null:new Set(sel),arr:()=>items.filter(i=>sel.has(i.v)).map(i=>i.v),set:a=>{sel=new Set(a&&a.length?a:items.map(i=>i.v));render()}};
+ MS[id]={get:()=>isAll()?null:new Set(sel),arr:()=>items.filter(i=>sel.has(i.v)).map(i=>i.v),set:a=>{sel=new Set(a||[]);render()}};
  render()}
 document.addEventListener('click',closeMS);document.addEventListener('keydown',e=>{if(e.key=='Escape')closeMS()});
 let comp=false;
 function dash(){
  const S=(p,m,y)=>({p:MS[p].get(),m:MS[m].get(),y:MS[y].get()});
  const A=S('dp0','dm','yr'),B=S('bp','bm','by');
+ const emp=s=>[s.p&&!s.p.size?'ένα πάρκο':null,s.m&&!s.m.size?'έναν μήνα':null,s.y&&!s.y.size?'ένα έτος':null].filter(Boolean);
+ const lst=a=>a.length>1?a.slice(0,-1).join(', ')+' και '+a[a.length-1]:a[0],em=[];
+ if(emp(A).length)em.push((comp?'Βάση Ανάλυσης: διάλεξε':'Διάλεξε')+' τουλάχιστον '+lst(emp(A))+' για να δεις τα στοιχεία.');
+ if(comp&&emp(B).length)em.push('Δεδομένα Σύγκρισης: διάλεξε τουλάχιστον '+lst(emp(B))+' για να δεις τη σύγκριση.');
+ $('dempty').style.display=em.length?'':'none';$('dres').style.display=em.length?'none':'';
+ if(em.length){$('dempty').textContent=em.join(' ');$('dn').textContent='';return}
  const yl=years.filter(y=>!A.y||A.y.has(y)),showYY=!comp&&yl.length>1;
  const pf=s=>r=>!s.p||s.p.has(r.p),tf=s=>r=>(!s.m||s.m.has(r.m))&&(!s.y||s.y.has(r.y)),fs=s=>r=>pf(s)(r)&&tf(s)(r);
  const partP=s=>s.p?parks.filter(q=>s.p.has(q)).join(', '):null,partM=s=>s.m?MON.filter((_,i)=>s.m.has(i+1)).join(', '):null,partY=s=>s.y?years.filter(y=>s.y.has(y)).join(', '):null;
@@ -187,27 +202,47 @@ function dash(){
    h+=`<tr><td>${y0}</td><td>${nf(m.k)}</td><td class="${cl(dk)}">${ft(dk)}</td><td>${nf(m.e)}</td><td class="${cl(de)}">${ft(de)}</td><td>${m.r?nf(m.r,4):'—'}</td></tr>`});
   $('cyyt2').innerHTML=h+'<caption style="caption-side:bottom;text-align:left;color:#6b7686;font-size:12px;padding-top:8px">Η μεταβολή υπολογίζεται σε σχέση με '+(base=='prev'?'το προηγούμενο από τα έτη που εμφανίζονται':'το '+base)+'.</caption>';
   $('cyyt').textContent='Έτος προς έτος — '+sl({p:A.p,m:A.m,y:null}).replace(/^Σύνολο$/,'όλα τα πάρκα και όλοι οι μήνες')}
- /* μηνιαία γραφήματα (ακολουθούν τους μήνες που έχουν επιλεγεί) */
+ /* γραφήματα */
+ const prevI=(arr,i)=>{let j=i-1;while(j>=0&&arr[j]==null)j--;return j};
+ const chg=arr=>arr.map((v,i)=>{const j=prevI(arr,i);return v!=null&&j>=0?pct(v,arr[j]):null});
+ const plab=key=>MON[key%100-1]+' '+Math.floor(key/100);
+ const tot=(key,k)=>sum(r=>r.y*100+r.m==key&&psA.includes(r.p),k);
+ const yoy=(key,k)=>{const v0=tot(key,k),v1=tot(key-100,k);return v0!=null&&v1!=null&&v1!=0?{p:pct(v0,v1),lab:plab(key-100)}:null};
+ const PC='#334155',RC='#be185d';
+ const dual=(lc,rc)=>({x:{grid:{display:false}},y:{position:'left',ticks:{callback:v=>nf(v),color:lc},title:{display:true,text:'kWh',color:lc}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>nf(v),color:rc},title:{display:true,text:'€',color:rc}}});
+ const lo=n=>({pointRadius:n>24?0:3,pointHoverRadius:6,borderWidth:2.2,tension:.25});
  if(!comp){
   const mons=MON.map((_,i)=>i+1).filter(m=>!A.m||A.m.has(m)),multiY=yl.length>1;
   const per=multiY?[...new Set(R.filter(r=>psA.includes(r.p)&&yl.includes(r.y)&&mons.includes(r.m)).map(r=>r.y*100+r.m))].sort((x,y)=>x-y):mons.map(m=>yl[0]*100+m);
   const lab=multiY?per.map(k=>MON[k%100-1]+' '+String(Math.floor(k/100)).slice(2)):mons.map(m=>MON[m-1]);
+  const totK=per.map(key=>tot(key,'k')),totE=per.map(key=>tot(key,'e')),dK=chg(totK),dE=chg(totE),few=per.length<=12;
   const ms=k=>psA.map(q=>({label:q,backgroundColor:pc(q),borderRadius:3,data:per.map(key=>sum(r=>r.y*100+r.m==key&&r.p==q,k))}));
-  chart('c1','bar',lab,ms('k'),{st:1});chart('c2','bar',lab,ms('e'),{st:1});
+  const foot=(tt,d,k)=>i=>{const L=[];if(psA.length>1)L.push('Σύνολο: '+nf(tt[i]));if(d[i]!=null)L.push(ft(d[i])+' σε σχέση με '+plab(per[prevI(tt,i)]));const y=yoy(per[i],k);if(y)L.push(ft(y.p)+' σε σχέση με '+y.lab);return L};
+  chart('c1','bar',lab,ms('k'),{st:1,deltas:few?dK:null,foot:foot(totK,dK,'k')});chart('c2','bar',lab,ms('e'),{st:1,deltas:few?dE:null,foot:foot(totE,dE,'e')});
   const ty=multiY?' — '+(partY(A)||'όλα τα έτη'):' · '+yl[0];
   $('c1t').textContent='Μηνιαία παραγωγή (kWh)'+ty;$('c2t').textContent='Μηνιαίο έσοδο (€)'+ty;
+  chart('c6','line',lab,[{label:'Παραγωγή (kWh)',data:totK,yAxisID:'y',borderColor:PC,backgroundColor:PC,...lo(per.length)},{label:'Έσοδο (€)',data:totE,yAxisID:'y2',borderColor:RC,backgroundColor:RC,borderDash:[6,4],...lo(per.length)}],
+   {scales:dual(PC,RC),lbl:c=>{const i=c.dataIndex,isP=c.datasetIndex==0,tt=isP?totK:totE,d=isP?dK:dE,L=[c.dataset.label+': '+nf(c.parsed.y)];if(d[i]!=null)L.push('   '+ft(d[i])+' σε σχέση με '+plab(per[prevI(tt,i)]));const y=yoy(per[i],isP?'k':'e');if(y)L.push('   '+ft(y.p)+' σε σχέση με '+y.lab);return L}});
+  $('c6t').textContent='Εξέλιξη παραγωγής και εσόδων'+ty;
  }else{
   const mons=(A.m&&B.m)?MON.map((_,i)=>i+1).filter(m=>A.m.has(m)||B.m.has(m)):MON.map((_,i)=>i+1);
   const cm=(s,k)=>mons.map(m=>(!s.m||s.m.has(m))?sum(r=>pf(s)(r)&&(!s.y||s.y.has(r.y))&&r.m==m,k):null);
-  const ms=k=>[{label:'Βάση Ανάλυσης: '+sl(A),backgroundColor:cA,borderRadius:3,data:cm(A,k)},{label:'Δεδομένα Σύγκρισης: '+sl(B),backgroundColor:cB,borderRadius:3,data:cm(B,k)}];
-  const lab=mons.map(m=>MON[m-1]);
-  chart('c1','bar',lab,ms('k'));chart('c2','bar',lab,ms('e'));
+  const kA=cm(A,'k'),kB=cm(B,'k'),eA=cm(A,'e'),eB=cm(B,'e'),dd=(x,y)=>x.map((v,i)=>v!=null&&y[i]!=null?pct(v,y[i]):null),dKc=dd(kA,kB),dEc=dd(eA,eB);
+  const lab=mons.map(m=>MON[m-1]),bar=(d1,d2)=>[{label:'Βάση Ανάλυσης: '+sl(A),backgroundColor:cA,borderRadius:3,data:d1},{label:'Δεδομένα Σύγκρισης: '+sl(B),backgroundColor:cB,borderRadius:3,data:d2}];
+  const ft2=d=>i=>d[i]!=null?[ft(d[i])+' σε σχέση με τα Δεδομένα Σύγκρισης']:[];
+  chart('c1','bar',lab,bar(kA,kB),{deltas:dKc,foot:ft2(dKc)});chart('c2','bar',lab,bar(eA,eB),{deltas:dEc,foot:ft2(dEc)});
   $('c1t').textContent='Μηνιαία παραγωγή (kWh) — Βάση Ανάλυσης έναντι Δεδομένων Σύγκρισης';$('c2t').textContent='Μηνιαίο έσοδο (€) — Βάση Ανάλυσης έναντι Δεδομένων Σύγκρισης';
+  const L=(label,d,ax,col,dash)=>({label,data:d,yAxisID:ax,borderColor:col,backgroundColor:col,borderDash:dash,...lo(mons.length)});
+  const dsets=[L('Παραγωγή — Βάση Ανάλυσης (kWh)',kA,'y',cA),L('Παραγωγή — Δεδομένα Σύγκρισης (kWh)',kB,'y',cB),L('Έσοδο — Βάση Ανάλυσης (€)',eA,'y2',cA,[6,4]),L('Έσοδο — Δεδομένα Σύγκρισης (€)',eB,'y2',cB,[6,4])];
+  chart('c6','line',lab,dsets,{scales:dual('#6b7686','#6b7686'),lbl:c=>{const i=c.dataIndex,out=[c.dataset.label+': '+nf(c.parsed.y)],d=c.datasetIndex==0?dKc:c.datasetIndex==2?dEc:null;if(d&&d[i]!=null)out.push('   '+ft(d[i])+' σε σχέση με τα Δεδομένα Σύγκρισης');return out}});
+  $('c6t').textContent='Εξέλιξη παραγωγής και εσόδων — Βάση Ανάλυσης έναντι Δεδομένων Σύγκρισης (συνεχής γραμμή: παραγωγή · διακεκομμένη: έσοδο)';
  }
  /* ετήσια εξέλιξη (ακολουθεί Πάρκο και Μήνες της Βάσης Ανάλυσης) */
  const ylist=(comp||yl.length<=1)?years:yl;
  const ys=k=>psA.map(q=>({label:q,backgroundColor:pc(q),borderRadius:3,data:ylist.map(yy=>sum(r=>r.y==yy&&r.p==q&&(!A.m||A.m.has(r.m)),k))}));
- chart('c3','bar',ylist,ys('k'),{st:1});chart('c4','bar',ylist,ys('e'),{st:1});
+ const totY=k=>ylist.map(yy=>sum(r=>r.y==yy&&psA.includes(r.p)&&(!A.m||A.m.has(r.m)),k)),tK=totY('k'),tE=totY('e'),yK=chg(tK),yE=chg(tE);
+ const footY=(tt,d)=>i=>{const L=[];if(psA.length>1)L.push('Σύνολο: '+nf(tt[i]));if(d[i]!=null)L.push(ft(d[i])+' σε σχέση με το '+ylist[prevI(tt,i)]);return L};
+ chart('c3','bar',ylist,ys('k'),{st:1,deltas:yK,foot:footY(tK,yK)});chart('c4','bar',ylist,ys('e'),{st:1,deltas:yE,foot:footY(tE,yE)});
  const ex=A.m?' · '+partM(A):'';
  $('c3t').textContent='Ετήσια εξέλιξη — παραγωγή (kWh)'+ex;$('c4t').textContent='Ετήσια εξέλιξη — έσοδο (€)'+ex}
 function y2y(){
@@ -230,8 +265,8 @@ function dat(){
 (async()=>{
  await load();parks=[...new Set(R.map(r=>r.p))];years=[...new Set(R.map(r=>r.y))].sort();
  const pItems=parks.map(q=>({v:q,t:q,c:pc(q)})),mItems=MON.map((n,i)=>({v:i+1,t:n})),yItems=years.map(y=>({v:y,t:String(y)})),last=[years[years.length-1]],cb=()=>dash();
- msCreate('dp0',pItems,'Όλα τα πάρκα','πάρκα',{onchange:cb});msCreate('dm',mItems,'Όλοι οι μήνες','μήνες',{cols:1,onchange:cb});msCreate('yr',yItems,'Όλα τα έτη','έτη',{init:last,onchange:cb});
- msCreate('bp',pItems,'Όλα τα πάρκα','πάρκα',{onchange:cb});msCreate('bm',mItems,'Όλοι οι μήνες','μήνες',{cols:1,onchange:cb});msCreate('by',yItems,'Όλα τα έτη','έτη',{init:last,onchange:cb});
+ msCreate('dp0',pItems,'Όλα τα πάρκα','πάρκα',{none:'Κανένα πάρκο',onchange:cb});msCreate('dm',mItems,'Όλοι οι μήνες','μήνες',{cols:1,none:'Κανένας μήνας',onchange:cb});msCreate('yr',yItems,'Όλα τα έτη','έτη',{init:last,none:'Κανένα έτος',onchange:cb});
+ msCreate('bp',pItems,'Όλα τα πάρκα','πάρκα',{none:'Κανένα πάρκο',onchange:cb});msCreate('bm',mItems,'Όλοι οι μήνες','μήνες',{cols:1,none:'Κανένας μήνας',onchange:cb});msCreate('by',yItems,'Όλα τα έτη','έτη',{init:last,none:'Κανένα έτος',onchange:cb});
  $('cyyb').onchange=dash;
  $('cbtn').onclick=()=>{comp=!comp;$('barB').style.display=comp?'flex':'none';$('cbtn').classList.toggle('on',comp);$('cbtn').textContent=comp?'✕ Κατάργηση Σύγκρισης':'＋ Προσθήκη Σύγκρισης';
   if(comp){MS.bp.set(MS.dp0.arr());MS.bm.set(MS.dm.arr());const ay=MS.yr.arr(),i=years.indexOf(ay[0]);MS.by.set(ay.length==1&&i>0?[years[i-1]]:ay)}
